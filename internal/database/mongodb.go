@@ -2,9 +2,8 @@ package database
 
 import (
 	"context"
-	"mongo-mcp-server/internal/config"
+	"github.com/DavutcanJ/mongo-mcp-server/internal/config"
 	"time"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )

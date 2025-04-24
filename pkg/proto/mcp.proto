@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package mcp;
 
-option go_package = "mongo-mcp-server/pkg/proto";
+option go_package = "github.com/DavutcanJ/mongo-mcp-server/pkg/proto";
 
 service MCPService {
   // Model operations

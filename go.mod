@@ -1,4 +1,4 @@
-module mongo-mcp-server
+module github.com/DavutcanJ/mongo-mcp-server
 
 go 1.21
 

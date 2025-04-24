@@ -172,7 +172,7 @@ func (c *mCPServiceClient) DeleteData(ctx context.Context, in *DataRequest, opts
 }
 
 // MCPServiceServer is the server API for MCPService service.
-// All implementations should embed UnimplementedMCPServiceServer
+// All implementations must embed UnimplementedMCPServiceServer
 // for forward compatibility
 type MCPServiceServer interface {
 	// Model operations
@@ -191,9 +191,10 @@ type MCPServiceServer interface {
 	GetData(context.Context, *DataRequest) (*DataResponse, error)
 	ListData(context.Context, *ListRequest) (*DataList, error)
 	DeleteData(context.Context, *DataRequest) (*DeleteResponse, error)
+	mustEmbedUnimplementedMCPServiceServer()
 }
 
-// UnimplementedMCPServiceServer should be embedded to have forward compatible implementations.
+// UnimplementedMCPServiceServer must be embedded to have forward compatible implementations.
 type UnimplementedMCPServiceServer struct {
 }
 
@@ -233,6 +234,7 @@ func (UnimplementedMCPServiceServer) ListData(context.Context, *ListRequest) (*D
 func (UnimplementedMCPServiceServer) DeleteData(context.Context, *DataRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteData not implemented")
 }
+func (UnimplementedMCPServiceServer) mustEmbedUnimplementedMCPServiceServer() {}
 
 // UnsafeMCPServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to MCPServiceServer will

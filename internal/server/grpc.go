@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"mongo-mcp-server/internal/config"
-	"mongo-mcp-server/internal/database"
-	"mongo-mcp-server/pkg/proto"
 	"net"
-
+	"github.com/DavutcanJ/mongo-mcp-server/internal/config"
+	"github.com/DavutcanJ/mongo-mcp-server/internal/database"
+	"github.com/DavutcanJ/mongo-mcp-server/pkg/proto"
 	"google.golang.org/grpc"
 )
 

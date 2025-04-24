@@ -7,12 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"mongo-mcp-server/internal/proto"
+	"github.com/DavutcanJ/mongo-mcp-server/pkg/proto"
+	"google.golang.org/grpc"
 )
 
 // Integration represents the Cursor MCP integration
 type Integration struct {
-	client *Client
+	client proto.MCPServiceClient
 	config *Config
 }
 
@@ -31,10 +32,11 @@ type Config struct {
 
 // NewIntegration creates a new Cursor MCP integration
 func NewIntegration(addr string) (*Integration, error) {
-	client, err := NewClient(addr)
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %v", err)
+		return nil, fmt.Errorf("failed to dial server: %v", err)
 	}
+	client := proto.NewMCPServiceClient(conn)
 
 	config, err := loadConfig()
 	if err != nil {
@@ -74,19 +76,56 @@ func (i *Integration) handleModelCommand(ctx context.Context, args []string) (st
 	switch args[0] {
 	case "create":
 		if len(args) < 4 {
-			return "", fmt.Errorf("create model requires name, type, and description")
+			return "", fmt.Errorf("create model requires name, type, and parameters")
 		}
-		model, err := i.client.CreateModel(ctx, args[1], args[2], args[3], nil)
+
+		params := make(map[string]string)
+		if len(args) > 4 {
+			err := json.Unmarshal([]byte(args[4]), &params)
+			if err != nil {
+				return "", fmt.Errorf("invalid parameters JSON: %v", err)
+			}
+		}
+
+		resp, err := i.client.CreateModel(ctx, &proto.Model{
+			Name:       args[1],
+			Type:       args[2],
+			Parameters: params,
+		})
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("Model created: %s", model.Id), nil
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return fmt.Sprintf("Model created: %s", resp.Model.Id), nil
+
+	case "get":
+		if len(args) < 2 {
+			return "", fmt.Errorf("get model requires id")
+		}
+		resp, err := i.client.GetModel(ctx, &proto.ModelRequest{Id: args[1]})
+		if err != nil {
+			return "", err
+		}
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return formatModel(resp.Model), nil
+
 	case "list":
-		models, _, err := i.client.ListModels(ctx, 10, "")
+		resp, err := i.client.ListModels(ctx, &proto.ListRequest{
+			PageSize: 10,
+			Filters:  make(map[string]string),
+		})
 		if err != nil {
 			return "", err
 		}
-		return formatModels(models), nil
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return formatModels(resp.Models), nil
+
 	default:
 		return "", fmt.Errorf("unknown model subcommand: %s", args[0])
 	}
@@ -101,19 +140,56 @@ func (i *Integration) handleContextCommand(ctx context.Context, args []string) (
 	switch args[0] {
 	case "create":
 		if len(args) < 3 {
-			return "", fmt.Errorf("create context requires name and description")
+			return "", fmt.Errorf("create context requires name and content")
 		}
-		context, err := i.client.CreateContext(ctx, args[1], args[2], nil, nil)
+
+		metadata := make(map[string]string)
+		if len(args) > 3 {
+			err := json.Unmarshal([]byte(args[3]), &metadata)
+			if err != nil {
+				return "", fmt.Errorf("invalid metadata JSON: %v", err)
+			}
+		}
+
+		resp, err := i.client.CreateContext(ctx, &proto.Context{
+			Name:     args[1],
+			Content:  args[2],
+			Metadata: metadata,
+		})
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("Context created: %s", context.Id), nil
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return fmt.Sprintf("Context created: %s", resp.Context.Id), nil
+
+	case "get":
+		if len(args) < 2 {
+			return "", fmt.Errorf("get context requires id")
+		}
+		resp, err := i.client.GetContext(ctx, &proto.ContextRequest{Id: args[1]})
+		if err != nil {
+			return "", err
+		}
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return formatContext(resp.Context), nil
+
 	case "list":
-		contexts, _, err := i.client.ListContexts(ctx, 10, "")
+		resp, err := i.client.ListContexts(ctx, &proto.ListRequest{
+			PageSize: 10,
+			Filters:  make(map[string]string),
+		})
 		if err != nil {
 			return "", err
 		}
-		return formatContexts(contexts), nil
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return formatContexts(resp.Contexts), nil
+
 	default:
 		return "", fmt.Errorf("unknown context subcommand: %s", args[0])
 	}
@@ -121,16 +197,31 @@ func (i *Integration) handleContextCommand(ctx context.Context, args []string) (
 
 // handleExecuteCommand handles protocol execution commands
 func (i *Integration) handleExecuteCommand(ctx context.Context, args []string) (string, error) {
-	if len(args) < 2 {
-		return "", fmt.Errorf("execute command requires protocol_id and context_id")
+	if len(args) < 3 {
+		return "", fmt.Errorf("execute command requires model_id, context_id and input")
 	}
 
-	executionID, err := i.client.ExecuteProtocol(ctx, args[0], args[1], nil)
+	params := make(map[string]string)
+	if len(args) > 3 {
+		err := json.Unmarshal([]byte(args[3]), &params)
+		if err != nil {
+			return "", fmt.Errorf("invalid parameters JSON: %v", err)
+		}
+	}
+
+	resp, err := i.client.ExecuteProtocol(ctx, &proto.Protocol{
+		ModelId:    args[0],
+		ContextId:  args[1],
+		Input:      args[2],
+		Parameters: params,
+	})
 	if err != nil {
 		return "", err
 	}
-
-	return fmt.Sprintf("Protocol execution started: %s", executionID), nil
+	if resp.Error != "" {
+		return "", fmt.Errorf(resp.Error)
+	}
+	return fmt.Sprintf("Protocol execution started: %s", resp.Id), nil
 }
 
 // handleStatusCommand handles protocol status commands
@@ -139,12 +230,14 @@ func (i *Integration) handleStatusCommand(ctx context.Context, args []string) (s
 		return "", fmt.Errorf("status command requires execution_id")
 	}
 
-	status, err := i.client.GetProtocolStatus(ctx, args[0])
+	resp, err := i.client.GetProtocolStatus(ctx, &proto.ProtocolRequest{Id: args[0]})
 	if err != nil {
 		return "", err
 	}
-
-	return fmt.Sprintf("Status: %s\nResult: %s", status.Status, status.Result), nil
+	if resp.Error != "" {
+		return "", fmt.Errorf(resp.Error)
+	}
+	return fmt.Sprintf("Status: %s", resp.Status), nil
 }
 
 // handleDataCommand handles data-related commands
@@ -158,17 +251,67 @@ func (i *Integration) handleDataCommand(ctx context.Context, args []string) (str
 		if len(args) < 3 {
 			return "", fmt.Errorf("add data requires type and content")
 		}
-		data, err := i.client.AddData(ctx, args[1], args[2], nil)
+
+		metadata := make(map[string]string)
+		if len(args) > 3 {
+			err := json.Unmarshal([]byte(args[3]), &metadata)
+			if err != nil {
+				return "", fmt.Errorf("invalid metadata JSON: %v", err)
+			}
+		}
+
+		resp, err := i.client.AddData(ctx, &proto.Data{
+			Type:     args[1],
+			Content:  []byte(args[2]),
+			Metadata: metadata,
+		})
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("Data added: %s", data.Id), nil
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return fmt.Sprintf("Data added: %s", resp.Data.Id), nil
+
+	case "get":
+		if len(args) < 2 {
+			return "", fmt.Errorf("get data requires id")
+		}
+		resp, err := i.client.GetData(ctx, &proto.DataRequest{Id: args[1]})
+		if err != nil {
+			return "", err
+		}
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return formatData(resp.Data), nil
+
 	case "list":
-		data, _, err := i.client.ListData(ctx, "", 10, "")
+		resp, err := i.client.ListData(ctx, &proto.ListRequest{
+			PageSize: 10,
+			Filters:  make(map[string]string),
+		})
 		if err != nil {
 			return "", err
 		}
-		return formatData(data), nil
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return formatDataList(resp.Data), nil
+
+	case "delete":
+		if len(args) < 2 {
+			return "", fmt.Errorf("delete data requires id")
+		}
+		resp, err := i.client.DeleteData(ctx, &proto.DataRequest{Id: args[1]})
+		if err != nil {
+			return "", err
+		}
+		if resp.Error != "" {
+			return "", fmt.Errorf(resp.Error)
+		}
+		return "Data deleted successfully", nil
+
 	default:
 		return "", fmt.Errorf("unknown data subcommand: %s", args[0])
 	}
@@ -176,7 +319,7 @@ func (i *Integration) handleDataCommand(ctx context.Context, args []string) (str
 
 // loadConfig loads the Cursor MCP configuration
 func loadConfig() (*Config, error) {
-	configPath := filepath.Join("pkg", "cursor", "mcp.json")
+	configPath := filepath.Join("configs", "cursor.json")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -191,29 +334,41 @@ func loadConfig() (*Config, error) {
 }
 
 // Helper functions for formatting output
+func formatModel(m *proto.Model) string {
+	return fmt.Sprintf("ID: %s\nName: %s\nType: %s\nParameters: %v\n",
+		m.Id, m.Name, m.Type, m.Parameters)
+}
+
 func formatModels(models []*proto.Model) string {
 	var result string
 	for _, m := range models {
-		result += fmt.Sprintf("ID: %s\nName: %s\nType: %s\nDescription: %s\n\n",
-			m.Id, m.Name, m.Type, m.Description)
+		result += formatModel(m) + "\n"
 	}
 	return result
+}
+
+func formatContext(c *proto.Context) string {
+	return fmt.Sprintf("ID: %s\nName: %s\nContent: %s\nMetadata: %v\n",
+		c.Id, c.Name, c.Content, c.Metadata)
 }
 
 func formatContexts(contexts []*proto.Context) string {
 	var result string
 	for _, c := range contexts {
-		result += fmt.Sprintf("ID: %s\nName: %s\nDescription: %s\nModel IDs: %v\n\n",
-			c.Id, c.Name, c.Description, c.ModelIds)
+		result += formatContext(c) + "\n"
 	}
 	return result
 }
 
-func formatData(data []*proto.Data) string {
+func formatData(d *proto.Data) string {
+	return fmt.Sprintf("ID: %s\nType: %s\nContent: %s\nMetadata: %v\n",
+		d.Id, d.Type, string(d.Content), d.Metadata)
+}
+
+func formatDataList(data []*proto.Data) string {
 	var result string
 	for _, d := range data {
-		result += fmt.Sprintf("ID: %s\nType: %s\nContent: %s\n\n",
-			d.Id, d.Type, d.Content)
+		result += formatData(d) + "\n"
 	}
 	return result
 }

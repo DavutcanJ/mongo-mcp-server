@@ -1,0 +1,21 @@
+{
+    "name": "mongo-mcp",
+    "version": "1.0.0",
+    "type": "server",
+    "description": "MongoDB based Model Control Protocol Server",
+    "commands": {
+        "prefix": "./mcp-tool.exe",
+        "available": [
+            "model create <name> <type> [parameters] - Create a new model",
+            "model get <id> - Get model details",
+            "model list - List all models",
+            "context create <name> <content> [metadata] - Create a new context",
+            "context get <id> - Get context details",
+            "context list - List all contexts",
+            "execute <model_id> <context_id> <input> [parameters] - Execute a protocol",
+            "data add <type> <content> [metadata] - Add new data",
+            "data get <id> - Get data details",
+            "data list - List all data"
+        ]
+    }
+} 
