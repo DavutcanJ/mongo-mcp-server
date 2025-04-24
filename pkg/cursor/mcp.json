@@ -1,0 +1,23 @@
+{
+    "name": "mongo-mcp-server",
+    "version": "1.0.0",
+    "type": "mcp-server",
+    "description": "MongoDB-based Model-Context-Protocol Server for Cursor",
+    "features": [
+        "code-completion",
+        "code-generation",
+        "code-analysis",
+        "context-awareness",
+        "multi-model-support"
+    ],
+    "commands": {
+        "prefix": "/mcp",
+        "available": [
+            "model",
+            "context",
+            "execute",
+            "status",
+            "data"
+        ]
+    }
+} 

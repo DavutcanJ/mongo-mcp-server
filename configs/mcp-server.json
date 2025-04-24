@@ -1,0 +1,85 @@
+{
+    "name": "mongo-mcp-server",
+    "version": "1.0.0",
+    "type": "mcp-server",
+    "description": "MongoDB-based Model-Context-Protocol Server for Cursor",
+    "connection": {
+        "host": "localhost",
+        "port": 50051,
+        "protocol": "grpc"
+    },
+    "database": {
+        "type": "mongodb",
+        "url": "mongodb://localhost:27017",
+        "name": "mcp_db",
+        "collections": {
+            "models": "models",
+            "contexts": "contexts",
+            "executions": "executions",
+            "data": "data"
+        }
+    },
+    "services": {
+        "model": {
+            "create": "/MCPService/CreateModel",
+            "get": "/MCPService/GetModel",
+            "list": "/MCPService/ListModels"
+        },
+        "context": {
+            "create": "/MCPService/CreateContext",
+            "get": "/MCPService/GetContext",
+            "list": "/MCPService/ListContexts"
+        },
+        "protocol": {
+            "execute": "/MCPService/ExecuteProtocol",
+            "status": "/MCPService/GetProtocolStatus"
+        },
+        "data": {
+            "add": "/MCPService/AddData",
+            "get": "/MCPService/GetData",
+            "list": "/MCPService/ListData",
+            "delete": "/MCPService/DeleteData"
+        }
+    },
+    "capabilities": {
+        "modelTypes": ["gpt-4", "gpt-3.5-turbo", "claude-2", "gemini-pro"],
+        "protocolTypes": ["GENERATE", "CHAT", "COMPLETE", "EDIT", "ANALYZE"],
+        "dataTypes": ["TEXT", "CODE", "IMAGE", "AUDIO", "EMBEDDING"]
+    },
+    "security": {
+        "authentication": "none",
+        "encryption": "tls_disabled"
+    },
+    "performance": {
+        "maxConcurrentRequests": 100,
+        "timeoutSeconds": 30,
+        "retryAttempts": 3
+    },
+    "logging": {
+        "level": "info",
+        "format": "json"
+    },
+    "cursor": {
+        "integration": {
+            "type": "mcp-server",
+            "apiVersion": "v1",
+            "features": [
+                "code-completion",
+                "code-generation",
+                "code-analysis",
+                "context-awareness",
+                "multi-model-support"
+            ]
+        },
+        "commands": {
+            "prefix": "/mcp",
+            "available": [
+                "model",
+                "context",
+                "execute",
+                "status",
+                "data"
+            ]
+        }
+    }
+} 
